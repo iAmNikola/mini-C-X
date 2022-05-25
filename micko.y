@@ -40,6 +40,7 @@
 %token _RBRACKET
 %token _ASSIGN
 %token _SEMICOLON
+%token _UNION
 %token <i> _AROP
 %token <i> _RELOP
 
@@ -52,7 +53,7 @@
 %%
 
 program
-  : function_list
+  : union_statement_list function_list
       {  
         if(lookup_symbol("main", FUN) == NO_INDEX)
           err("undefined reference to 'main'");
@@ -284,6 +285,17 @@ return_statement
         code("\n\t\tJMP \t@%s_exit", get_name(fun_idx));        
       }
   ;
+
+union_statement
+	: _UNION _ID 
+		_LBRACKET variable_list
+		_RBRACKET _ID _SEMICOLON
+	;
+
+union_statement_list
+	: /* empty */
+	| union_statement_list union_statement
+	;
 
 %%
 
