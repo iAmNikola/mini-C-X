@@ -23,7 +23,8 @@
 
   // union
   char union_name[];
-  int union_counter = -1;
+  int union_counter = 0;
+  int union_var_num = -1;
   bool union_active;
 %}
 
@@ -93,6 +94,28 @@ function
         code("\n\t\tPOP \t%%14");
         code("\n\t\tRET");
       }
+  | _UNION _ID _ID
+    {
+        fun_idx = lookup_symbol($3, FUN);
+        if(fun_idx == NO_INDEX)
+          fun_idx = insert_symbol($3, FUN, UNION, NO_ATR, NO_ATR, $1);
+        else 
+          err("redefinition of function '%s'", $3);
+
+        code("\n%s:", $2);
+        code("\n\t\tPUSH\t%%14");
+        code("\n\t\tMOV \t%%15,%%14");
+      }
+    _LPAREN parameter _RPAREN body
+      {
+        clear_symbols(fun_idx + 1);
+        var_num = 0;
+        
+        code("\n@%s_exit:", $3);
+        code("\n\t\tMOV \t%%14,%%15");
+        code("\n\t\tPOP \t%%14");
+        code("\n\t\tRET");
+      }
   ;
 
 parameter
@@ -102,6 +125,12 @@ parameter
   | _TYPE _ID
       {
         insert_symbol($2, PAR, $1, 1, NO_ATR);
+        set_atr1(fun_idx, 1);
+        set_atr2(fun_idx, $1);
+      }
+  | _UNION _ID _ID
+      {
+        insert_symbol($3, PAR, UNION, 1, NO_ATR, union_name);
         set_atr1(fun_idx, 1);
         set_atr2(fun_idx, $1);
       }
@@ -127,7 +156,7 @@ variable
       {
         if (union_active) {
           if (lookup_symbol($2, union_name) == NO_INDEX)
-            insert_symbol($2, UNION_VAR, $1, union_name) // IT MAYBE BREAKS HERE (++var_num is missing);
+            insert_symbol($2, UNION_VAR, $1, union_var_num++, NO_ATR, union_name);
           else
             err("redefinition of %s in %s union", $2, union_name);
         }
@@ -139,7 +168,17 @@ variable
   | _UNION _ID _ID _SEMICOLON
     {
       if (union_active)
-        err("Union cannot contain a union");
+        err("Union cannot contain a union.");
+      else {
+        if (lookup_symbol($2, UNION_K) != NO_INDEX) {
+          if (lookup_symbol($3, VAR) == NO_INDEX)
+            insert_symbol($3, VAR, UNION, ++var_num, NO_ATR, $2);
+          else
+            err("Variable with name %s is already defined", $3);
+        }
+        else
+          err("No union definition with name %s", $2)
+      }
     }
   ;
 
@@ -169,6 +208,26 @@ assignment_statement
           if(get_type(idx) != get_type($3))
             err("incompatible types in assignment");
         gen_mov($3, idx);
+      }
+  | _ID _DOT _ID _ASSIGN num_exp _SEMICOLON
+    {
+        int union_idx = lookup_symbol($1, VAR|PAR);
+        if(union_idx == NO_INDEX)
+          err("invalid lvalue '%s' in assignment", $1);
+        else
+          {
+            // check if $3 _ID is variable in union definition and is valid type
+            int union_var_idx = lookup_symbol($3, UNION_VAR, $1);
+            if(union_var_idx != NO_INDEX)
+              if(get_type(union_var_idx) == get_type($3)) {
+                // Sets union variable's active variable to the var_num in union definition
+                set_active_variable(get_atr1(union_var_idx));
+              }
+              else
+                err("incompatible types in assignment");
+            else
+              err("No union variable with name %s", $3);
+          }
       }
   ;
 
@@ -210,7 +269,14 @@ exp
       }
   
   | _LPAREN num_exp _RPAREN
-      { $$ = $2; }  
+      { $$ = $2; }
+
+  | _ID _DOT _ID
+    {
+      $$ = lookup_symbol($3, UNION_VAR, $1);
+      if($$ == NO_INDEX)
+        err("'%s' undeclared", $1);
+    }
   ;
 
 literal
@@ -312,7 +378,6 @@ union_definition
     { 
       union_active = true;
       union_name = $2;
-      union_counter++;
       if (lookup_symbol(union_name, UNION_K) == NO_INDEX) {
         insert_symbol(union_name, UNION_K, NO_TYPE, NO_ATR, NO_ATR);
       }
@@ -322,7 +387,13 @@ union_definition
     }
     _LBRACKET variable_list
     {
-      union_active = false;
+      if (union_var_num) {
+        union_active = false;
+        union_var_num = -1;
+      }
+      else {
+        err("Union %s doesn't have attributes.", $2);
+      }
     }
     _RBRACKET _SEMICOLON
   ;
