@@ -41,6 +41,17 @@ int insert_symbol(char *name, unsigned kind, unsigned type,
   return index;
 }
 
+int insert_symbol(char *name, unsigned kind, unsigned type, char *union_name) {
+  int index = get_next_empty_element();
+  symbol_table[index].name = name;
+  symbol_table[index].kind = kind;
+  symbol_table[index].type = type;
+  symbol_table[index].atr1 = UNION_DEF;
+  symbol_table[index].atr2 = NO_ATR;
+  symbol_table[index].union_name = union_name;
+  return index;
+}
+
 // Ubacuje konstantu u tabelu simbola (ako vec ne postoji).
 int insert_literal(char *str, unsigned type) {
   int idx;
@@ -65,6 +76,17 @@ int lookup_symbol(char *name, unsigned kind) {
   for(i = first_empty - 1; i > FUN_REG; i--) {
     if(strcmp(symbol_table[i].name, name) == 0 
        && symbol_table[i].kind & kind)
+       return i;
+  }
+  return -1;
+}
+
+// Vraca indeks pronadjenog simbola po imenu kinda
+int lookup_symbol(char *name, char *union_name) {
+  int i;
+  for(i = first_empty - 1; i > FUN_REG; i--) {
+    if(strcmp(symbol_table[i].name, name) == 0 
+       && strcmp(symbol_table[i].union_name, union_name) == 0)
        return i;
   }
   return -1;
@@ -122,6 +144,17 @@ void set_atr2(int index, unsigned atr2) {
 unsigned get_atr2(int index) {
   if(index > -1 && index < SYMBOL_TABLE_LENGTH)
     return symbol_table[index].atr2;
+  return NO_ATR;
+}
+
+void set_union_name(int index, char *union_name) {
+  if(index > -1 && index < SYMBOL_TABLE_LENGTH)
+    symbol_table[index].union_name = union_name;
+}
+
+char* get_union_name(int index) {
+  if(index > -1 && index < SYMBOL_TABLE_LENGTH)
+    return symbol_table[index].union_name;
   return NO_ATR;
 }
 
