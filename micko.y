@@ -20,6 +20,11 @@
   int fcall_idx = -1;
   int lab_num = -1;
   FILE *output;
+
+  // union
+  char union_name[];
+  int union_counter = -1;
+  bool union_active;
 %}
 
 %union {
@@ -42,8 +47,9 @@
 %token _SEMICOLON
 %token <i> _AROP
 %token <i> _RELOP
+%token <u> _UNION
 
-%type <i> num_exp exp literal
+%type <i> num_exp exp literal cast_exp
 %type <i> function_call argument rel_exp if_part
 
 %nonassoc ONLY_IF
@@ -52,7 +58,7 @@
 %%
 
 program
-  : function_list
+  : union_list function_list
       {  
         if(lookup_symbol("main", FUN) == NO_INDEX)
           err("undefined reference to 'main'");
@@ -119,11 +125,22 @@ variable_list
 variable
   : _TYPE _ID _SEMICOLON
       {
-        if(lookup_symbol($2, VAR|PAR) == NO_INDEX)
+        if (union_active) {
+          if (lookup_symbol($2, union_name) == NO_INDEX)
+            insert_symbol($2, UNION_VAR, $1, union_name) // IT MAYBE BREAKS HERE (++var_num is missing);
+          else
+            err("redefinition of %s in %s union", $2, union_name);
+        }
+        else if(lookup_symbol($2, VAR|PAR) == NO_INDEX)
            insert_symbol($2, VAR, $1, ++var_num, NO_ATR);
         else 
            err("redefinition of '%s'", $2);
       }
+  | _UNION _ID _ID _SEMICOLON
+    {
+      if (union_active)
+        err("Union cannot contain a union");
+    }
   ;
 
 statement_list
@@ -193,7 +210,7 @@ exp
       }
   
   | _LPAREN num_exp _RPAREN
-      { $$ = $2; }
+      { $$ = $2; }  
   ;
 
 literal
@@ -283,6 +300,31 @@ return_statement
         gen_mov($2, FUN_REG);
         code("\n\t\tJMP \t@%s_exit", get_name(fun_idx));        
       }
+  ;
+
+union_list
+  : /* empty */
+  | union_list union_definition
+  ;
+
+union_definition
+  : _UNION _ID 
+    { 
+      union_active = true;
+      union_name = $2;
+      union_counter++;
+      if (lookup_symbol(union_name, UNION_K) == NO_INDEX) {
+        insert_symbol(union_name, UNION_K, NO_TYPE, NO_ATR, NO_ATR);
+      }
+      else {
+        err("Union with name %s already exists", $2);
+      }
+    }
+    _LBRACKET variable_list
+    {
+      union_active = false;
+    }
+    _RBRACKET _SEMICOLON
   ;
 
 %%
