@@ -22,7 +22,7 @@
   FILE *output;
 
   // union
-  char union_name[];
+  char *union_name;
   int union_counter = 0;
   int union_var_num = -1;
   bool union_active;
@@ -48,9 +48,10 @@
 %token _SEMICOLON
 %token <i> _AROP
 %token <i> _RELOP
-%token <u> _UNION
+%token _UNION
+%token _DOT
 
-%type <i> num_exp exp literal cast_exp
+%type <i> num_exp exp literal
 %type <i> function_call argument rel_exp if_part
 
 %nonassoc ONLY_IF
@@ -98,7 +99,7 @@ function
     {
         fun_idx = lookup_symbol($3, FUN);
         if(fun_idx == NO_INDEX)
-          fun_idx = insert_symbol($3, FUN, UNION, NO_ATR, NO_ATR, $1);
+          fun_idx = insert_symbol_union($3, FUN, UNION, NO_ATR, NO_ATR, $2);
         else 
           err("redefinition of function '%s'", $3);
 
@@ -130,9 +131,9 @@ parameter
       }
   | _UNION _ID _ID
       {
-        insert_symbol($3, PAR, UNION, 1, NO_ATR, union_name);
+        insert_symbol_union($3, PAR, UNION, 1, NO_ATR, $2);
         set_atr1(fun_idx, 1);
-        set_atr2(fun_idx, $1);
+        set_atr2(fun_idx, UNION);
       }
   ;
 
@@ -155,8 +156,8 @@ variable
   : _TYPE _ID _SEMICOLON
       {
         if (union_active) {
-          if (lookup_symbol($2, union_name) == NO_INDEX)
-            insert_symbol($2, UNION_VAR, $1, union_var_num++, NO_ATR, union_name);
+          if (lookup_symbol_union($2, union_name) == NO_INDEX)
+            insert_symbol_union($2, UNION_VAR, $1, union_var_num++, union_counter, union_name);
           else
             err("redefinition of %s in %s union", $2, union_name);
         }
@@ -172,12 +173,12 @@ variable
       else {
         if (lookup_symbol($2, UNION_K) != NO_INDEX) {
           if (lookup_symbol($3, VAR) == NO_INDEX)
-            insert_symbol($3, VAR, UNION, ++var_num, NO_ATR, $2);
+            insert_symbol_union($3, VAR, UNION, ++var_num, NO_ATR, $2);
           else
             err("Variable with name %s is already defined", $3);
         }
         else
-          err("No union definition with name %s", $2)
+          err("No union definition with name %s", $2);
       }
     }
   ;
@@ -217,16 +218,16 @@ assignment_statement
         else
           {
             // check if $3 _ID is variable in union definition and is valid type
-            int union_var_idx = lookup_symbol($3, UNION_VAR, $1);
+            int union_var_idx = lookup_symbol_union_kind($3, UNION_VAR, get_union_name(union_idx));
             if(union_var_idx != NO_INDEX)
-              if(get_type(union_var_idx) == get_type($3)) {
+              if(get_type(union_var_idx) == get_type($5)) {
                 // Sets union variable's active variable to the var_num in union definition
-                set_active_variable(get_atr1(union_var_idx));
+                set_active_variable(union_idx, get_atr1(union_var_idx));
               }
               else
                 err("incompatible types in assignment");
             else
-              err("No union variable with name %s", $3);
+              err("Union '%s' doesn't have variable with name %s", get_union_name(union_idx) ,$3);
           }
       }
   ;
@@ -273,9 +274,14 @@ exp
 
   | _ID _DOT _ID
     {
-      $$ = lookup_symbol($3, UNION_VAR, $1);
-      if($$ == NO_INDEX)
-        err("'%s' undeclared", $1);
+      int union_idx = lookup_symbol($1, VAR|PAR);
+      if(union_idx == NO_INDEX)
+        err("variable '%s' undeclared", $1);
+      else {
+        $$ = lookup_symbol_union_kind($3, UNION_VAR, get_union_name(union_idx));
+        if($$ == NO_INDEX)
+          err("Union '%s' doesn't have variable with name %s", get_union_name(union_idx) ,$3);
+      }
     }
   ;
 
@@ -376,10 +382,11 @@ union_list
 union_definition
   : _UNION _ID 
     { 
-      union_active = true;
+      union_active = 1;
+      union_counter++;
       union_name = $2;
       if (lookup_symbol(union_name, UNION_K) == NO_INDEX) {
-        insert_symbol(union_name, UNION_K, NO_TYPE, NO_ATR, NO_ATR);
+        insert_symbol(union_name, UNION_K, NO_TYPE, union_counter, NO_ATR);
       }
       else {
         err("Union with name %s already exists", $2);
@@ -388,7 +395,7 @@ union_definition
     _LBRACKET variable_list
     {
       if (union_var_num) {
-        union_active = false;
+        union_active = 0;
         union_var_num = -1;
       }
       else {
