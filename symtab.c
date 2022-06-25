@@ -38,17 +38,20 @@ int insert_symbol(char *name, unsigned kind, unsigned type,
   symbol_table[index].type = type;
   symbol_table[index].atr1 = atr1;
   symbol_table[index].atr2 = atr2;
+  symbol_table[index].union_name = "";
+  symbol_table[index].active_variable = -1;
   return index;
 }
 
-int insert_symbol(char *name, unsigned kind, unsigned type, char *union_name) {
+int insert_symbol(char *name, unsigned kind, unsigned type, unsigned atr1, unsigned atr2, char *union_name) {
   int index = get_next_empty_element();
   symbol_table[index].name = name;
   symbol_table[index].kind = kind;
   symbol_table[index].type = type;
-  symbol_table[index].atr1 = UNION_DEF;
-  symbol_table[index].atr2 = NO_ATR;
+  symbol_table[index].atr1 = atr1;
+  symbol_table[index].atr2 = atr2;
   symbol_table[index].union_name = union_name;
+  symbol_table[index].active_variable = -1;
   return index;
 }
 
@@ -86,6 +89,18 @@ int lookup_symbol(char *name, char *union_name) {
   int i;
   for(i = first_empty - 1; i > FUN_REG; i--) {
     if(strcmp(symbol_table[i].name, name) == 0 
+       && strcmp(symbol_table[i].union_name, union_name) == 0)
+       return i;
+  }
+  return -1;
+}
+
+// Vraca indeks varijable unije po imenu i kind
+int lookup_symbol(char *name, unsigned kind, char *union_name) {
+  int i;
+  for(i = first_empty - 1; i > FUN_REG; i--) {
+    if(strcmp(symbol_table[i].name, name) == 0 
+       && symbol_table[i].kind & kind
        && strcmp(symbol_table[i].union_name, union_name) == 0)
        return i;
   }
@@ -155,6 +170,17 @@ void set_union_name(int index, char *union_name) {
 char* get_union_name(int index) {
   if(index > -1 && index < SYMBOL_TABLE_LENGTH)
     return symbol_table[index].union_name;
+  return NO_ATR;
+}
+
+void set_active_variable(int index, int active_variable) {
+  if(index > -1 && index < SYMBOL_TABLE_LENGTH)
+    symbol_table[index].active_variable = active_variable;
+}
+
+unsigned get_active_variable(int index) {
+  if(index > -1 && index < SYMBOL_TABLE_LENGTH)
+    return symbol_table[index].active_variable;
   return NO_ATR;
 }
 

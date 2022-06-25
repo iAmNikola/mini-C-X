@@ -10,6 +10,7 @@ typedef struct sym_entry {
    unsigned atr1;          // dodatni attribut simbola
    unsigned atr2;          // dodatni attribut simbola
    char *   union_name;    // ime unije kojoj pripada
+   int active_variable;    // redni broj aktivnog atributa unije i vrednost koju drzi;
 } SYMBOL_ENTRY;
 
 // Vraca indeks prvog sledeceg praznog elementa.
@@ -25,7 +26,7 @@ int insert_symbol(char *name, unsigned kind, unsigned type,
                   unsigned atr1, unsigned atr2);
 
 // ubacuje novi simbol za u tabelu (za unije)
-int insert_symbol(char *name, unsigned kind, unsigned type, char *union_name);
+int insert_symbol(char *name, unsigned kind, unsigned type, unsigned atr2, char *union_name);
 
 // Ubacuje konstantu u tabelu simbola (ako vec ne postoji).
 int insert_literal(char *str, unsigned type);
@@ -49,6 +50,8 @@ void     set_atr2(int index, unsigned atr2);
 unsigned get_atr2(int index);
 void     set_union_name(int index, char *union_name);
 unsigned get_union_name(int index);
+void     set_active_variable(int index, int active_variable);
+unsigned get_active_variable(int index);
 
 // Brise elemente tabele od zadatog indeksa
 void clear_symbols(unsigned begin_index);
