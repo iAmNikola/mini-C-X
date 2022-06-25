@@ -43,7 +43,7 @@ int insert_symbol(char *name, unsigned kind, unsigned type,
   return index;
 }
 
-int insert_symbol(char *name, unsigned kind, unsigned type, unsigned atr1, unsigned atr2, char *union_name) {
+int insert_symbol_union(char *name, unsigned kind, unsigned type, unsigned atr1, unsigned atr2, char *union_name) {
   int index = get_next_empty_element();
   symbol_table[index].name = name;
   symbol_table[index].kind = kind;
@@ -85,7 +85,7 @@ int lookup_symbol(char *name, unsigned kind) {
 }
 
 // Vraca indeks pronadjenog simbola po imenu kinda
-int lookup_symbol(char *name, char *union_name) {
+int lookup_symbol_union(char *name, char *union_name) {
   int i;
   for(i = first_empty - 1; i > FUN_REG; i--) {
     if(strcmp(symbol_table[i].name, name) == 0 
@@ -96,7 +96,7 @@ int lookup_symbol(char *name, char *union_name) {
 }
 
 // Vraca indeks varijable unije po imenu i kind
-int lookup_symbol(char *name, unsigned kind, char *union_name) {
+int lookup_symbol_union_kind(char *name, unsigned kind, char *union_name) {
   int i;
   for(i = first_empty - 1; i > FUN_REG; i--) {
     if(strcmp(symbol_table[i].name, name) == 0 
@@ -214,18 +214,19 @@ void clear_symtab(void) {
 // Ispisuje sve elemente tabele simbola.
 void print_symtab(void) {
   static const char *symbol_kinds[] = { 
-    "NONE", "REG", "LIT", "FUN", "VAR", "PAR" };
+    "NONE", "REG", "LIT", "FUN", "VAR", "PAR", "UNION_K", "UNION_VAR" };
   int i,j;
   printf("\n\nSYMBOL TABLE\n");
-  printf("\n       name           kind   type  atr1   atr2");
-  printf("\n-- ---------------- -------- ----  -----  -----");
+  printf("\n       name            kind        type  atr1  atr2   union_name");
+  printf("\n-- ----------------    ----------- ----  ----- -----  ------------");
   for(i = 0; i < first_empty; i++) {
-    printf("\n%2d %-19s %-4s %4d  %4d  %4d ", i, 
+    printf("\n%2d %-19s %-9s %4d  %4d  %4d     %-19s", i, 
     symbol_table[i].name, 
     symbol_kinds[(int)(logarithm2(symbol_table[i].kind))], 
     symbol_table[i].type, 
     symbol_table[i].atr1, 
-    symbol_table[i].atr2);
+    symbol_table[i].atr2,
+    symbol_table[i].union_name);
   }
   printf("\n\n");
 }
