@@ -7,7 +7,6 @@ union Unija {
 union Pas {
     int kuca;
     int ker;
-    int kujica;
 };
 
 union Unija funkcija(int parametar) {
@@ -24,9 +23,12 @@ int main() {
     union Unija instanca;
     union Unija unija;
     union Pas pas;
-    int result;
+    int a;
+    int b;
 
-    instanca.add = 5;
+    a = 5;
+    b = 10;
+    instanca.b = (int)(a+b)+(unsigned)(5);
     unija = funkcija(instanca.add);
     return broj(pas);
 }
