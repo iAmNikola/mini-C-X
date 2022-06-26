@@ -26,6 +26,8 @@
   int union_counter = 0;
   int union_var_num = -1;
   bool union_active;
+  bool cast_active;
+  unsigned cast_to_type;
 %}
 
 %union {
@@ -51,11 +53,13 @@
 %token _UNION
 %token _DOT
 
-%type <i> num_exp exp literal
+%type <i> num_exp exp literal cast_exp
 %type <i> function_call argument rel_exp if_part
 
 %nonassoc ONLY_IF
 %nonassoc _ELSE
+
+%right CAST
 
 %%
 
@@ -103,7 +107,7 @@ function
         else 
           err("redefinition of function '%s'", $3);
 
-        code("\n%s:", $2);
+        code("\n%s:", $3);
         code("\n\t\tPUSH\t%%14");
         code("\n\t\tMOV \t%%15,%%14");
       }
@@ -206,8 +210,15 @@ assignment_statement
         if(idx == NO_INDEX)
           err("invalid lvalue '%s' in assignment", $1);
         else
-          if(get_type(idx) != get_type($3))
-            err("incompatible types in assignment");
+          if(cast_active) {
+            if(get_type(idx) != cast_to_type)
+              err("incompatible types in assignment. Value is casted to wrong type");
+            cast_active = 0;
+            cast_to_type = NO_TYPE;
+          }
+          else
+            if(get_type(idx) != get_type($3))
+              err("incompatible types in assignment");
         gen_mov($3, idx);
       }
   | _ID _DOT _ID _ASSIGN num_exp _SEMICOLON
@@ -220,12 +231,20 @@ assignment_statement
             // check if $3 _ID is variable in union definition and is valid type
             int union_var_idx = lookup_symbol_union_kind($3, UNION_VAR, get_union_name(union_idx));
             if(union_var_idx != NO_INDEX)
-              if(get_type(union_var_idx) == get_type($5)) {
-                // Sets union variable's active variable to the var_num in union definition
-                set_active_variable(union_idx, get_atr1(union_var_idx));
+              if(cast_active) {
+                if(get_type(union_var_idx) != cast_to_type)
+                  err("incompatible types in assignment. Value is casted to wrong type");
+                cast_active = 0;
+                cast_to_type = NO_TYPE;
               }
-              else
-                err("incompatible types in assignment");
+              else {
+                if(get_type(union_var_idx) == get_type($5)) {
+                  // Sets union variable's active variable to the var_num in union definition
+                  set_active_variable(union_idx, get_atr1(union_var_idx));
+                }
+                else
+                  err("incompatible types in assignment");
+              }
             else
               err("Union '%s' doesn't have variable with name %s", get_union_name(union_idx) ,$3);
           }
@@ -233,9 +252,9 @@ assignment_statement
   ;
 
 num_exp
-  : exp
+  : cast_exp
 
-  | num_exp _AROP exp
+  | num_exp _AROP cast_exp
       {
         if(get_type($1) != get_type($3))
           err("invalid operands: arithmetic operation");
@@ -282,6 +301,17 @@ exp
         if($$ == NO_INDEX)
           err("Union '%s' doesn't have variable with name %s", get_union_name(union_idx) ,$3);
       }
+    }
+  ;
+
+cast_exp
+  : exp
+  
+  | _LPAREN _TYPE _RPAREN exp %prec CAST
+    {
+      cast_active = 1;
+      cast_to_type = $2;
+      $$ = $4;
     }
   ;
 
@@ -367,8 +397,15 @@ rel_exp
 return_statement
   : _RETURN num_exp _SEMICOLON
       {
-        if(get_type(fun_idx) != get_type($2))
-          err("incompatible types in return");
+        if(cast_active) {
+            if(get_type(fun_idx) != cast_to_type)
+              err("incompatible types in return. Value is casted to wrong type");
+            cast_active = 0;
+            cast_to_type = NO_TYPE;
+          }
+        else  
+          if(get_type(fun_idx) != get_type($2))
+            err("incompatible types in return");
         gen_mov($2, FUN_REG);
         code("\n\t\tJMP \t@%s_exit", get_name(fun_idx));        
       }
