@@ -217,16 +217,17 @@ void print_symtab(void) {
     "NONE", "REG", "LIT", "FUN", "VAR", "PAR", "UNION_K", "UNION_VAR" };
   int i,j;
   printf("\n\nSYMBOL TABLE\n");
-  printf("\n       name            kind        type  atr1  atr2   union_name");
-  printf("\n-- ----------------    ----------- ----  ----- -----  ------------");
+  printf("\n       name            kind        type  atr1  atr2   union_name      active_variable");
+  printf("\n-- ----------------    ----------- ----  ----- -----  -------------   ---------------");
   for(i = 0; i < first_empty; i++) {
-    printf("\n%2d %-19s %-9s %4d  %4d  %4d     %-19s", i, 
+    printf("\n%2d %-19s %-9s %4d  %4d %4d     %-14s  %4d", i, 
     symbol_table[i].name, 
     symbol_kinds[(int)(logarithm2(symbol_table[i].kind))], 
     symbol_table[i].type, 
     symbol_table[i].atr1, 
     symbol_table[i].atr2,
-    symbol_table[i].union_name);
+    symbol_table[i].union_name,
+    symbol_table[i].active_variable);
   }
   printf("\n\n");
 }
