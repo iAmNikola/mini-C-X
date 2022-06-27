@@ -106,11 +106,14 @@ function
   | _UNION _ID _ID
     {
         fun_idx = lookup_symbol($3, FUN);
-        if(fun_idx == NO_INDEX)
-          fun_idx = insert_symbol_union($3, FUN, UNION, NO_ATR, NO_ATR, $2);
-        else 
-          err("redefinition of function '%s'", $3);
-
+        if (lookup_symbol($2, UNION_K) != NO_INDEX) {
+          if(fun_idx == NO_INDEX)
+            fun_idx = insert_symbol_union($3, FUN, UNION, NO_ATR, NO_ATR, $2);
+          else 
+            err("redefinition of function '%s'", $3);
+        }
+        else
+          err("No union definition with name %s", $2);
         code("\n%s:", $3);
         code("\n\t\tPUSH\t%%14");
         code("\n\t\tMOV \t%%15,%%14");
@@ -119,7 +122,6 @@ function
       {
         clear_symbols(fun_idx + 1);
         var_num = 0;
-        
         code("\n@%s_exit:", $3);
         code("\n\t\tMOV \t%%14,%%15");
         code("\n\t\tPOP \t%%14");
@@ -288,7 +290,6 @@ num_exp
 
 exp
   : literal
-
   | _ID
       {
         $$ = lookup_symbol($1, VAR|PAR);
