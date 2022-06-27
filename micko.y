@@ -24,10 +24,13 @@
   // union
   char *union_name;
   int union_counter = 0;
-  int union_var_num = -1;
+  int union_var_num = 0;
   bool union_active;
   bool cast_active;
   unsigned cast_to_type;
+  char *variable_name = "";
+  char *left_var_name;
+  char *right_var_name;
 %}
 
 %union {
@@ -161,7 +164,7 @@ variable
       {
         if (union_active) {
           if (lookup_symbol_union($2, union_name) == NO_INDEX)
-            insert_symbol_union($2, UNION_VAR, $1, union_var_num++, union_counter, union_name);
+            insert_symbol_union($2, UNION_VAR, $1, ++union_var_num, union_counter, union_name);
           else
             err("redefinition of %s in %s union", $2, union_name);
         }
@@ -223,48 +226,58 @@ assignment_statement
       }
   | _ID _DOT _ID _ASSIGN num_exp _SEMICOLON
     {
-        int union_idx = lookup_symbol($1, VAR|PAR);
-        if(union_idx == NO_INDEX)
-          err("invalid lvalue '%s' in assignment", $1);
-        else
-          {
-            // check if $3 _ID is variable in union definition and is valid type
-            int union_var_idx = lookup_symbol_union_kind($3, UNION_VAR, get_union_name(union_idx));
-            if(union_var_idx != NO_INDEX)
-              if(cast_active) {
-                if(get_type(union_var_idx) != cast_to_type)
-                  err("incompatible types in assignment. Value is casted to wrong type");
-                cast_active = 0;
-                cast_to_type = NO_TYPE;
-              }
-              else {
-                if(get_type(union_var_idx) == get_type($5)) {
-                  // Sets union variable's active variable to the var_num in union definition
-                  set_active_variable(union_idx, get_atr1(union_var_idx));
-                }
-                else
-                  err("incompatible types in assignment");
-              }
-            else
-              err("Union '%s' doesn't have variable with name %s", get_union_name(union_idx) ,$3);
+      int union_idx = lookup_symbol($1, VAR|PAR);
+      if(union_idx == NO_INDEX)
+        err("invalid lvalue '%s' in assignment", $1);
+      else {
+        // check if $3 _ID is variable in union definition and is valid type
+        int union_var_idx = lookup_symbol_union_kind($3, UNION_VAR, get_union_name(union_idx));
+        if(union_var_idx != NO_INDEX)
+          if(cast_active) {
+            if(get_type(union_var_idx) != cast_to_type)
+              err("incompatible types in assignment. Value is casted to wrong type");
+            cast_active = 0;
+            cast_to_type = NO_TYPE;
           }
+          else {
+            if(get_type(union_var_idx) == get_type($5)) {
+              // Sets union variable's active variable to the var_num in union definition
+              set_active_variable(union_idx, get_atr1(union_var_idx));
+            }
+            else
+              err("incompatible types in assignment");
+          }
+        else
+          err("Union '%s' doesn't have variable with name %s", get_union_name(union_idx) ,$3);
       }
+      if(get_kind($5) == UNION_VAR)
+        gen_mov(lookup_symbol(variable_name, VAR|PAR), union_idx);
+      else
+        gen_mov($5, union_idx);
+    }
   ;
 
 num_exp
   : cast_exp
 
-  | num_exp _AROP cast_exp
+  | num_exp { left_var_name = variable_name; } _AROP cast_exp
       {
-        if(get_type($1) != get_type($3))
+        right_var_name = variable_name;
+        if(get_type($1) != get_type($4))
           err("invalid operands: arithmetic operation");
-        int t1 = get_type($1);    
-        code("\n\t\t%s\t", ar_instructions[$2 + (t1 - 1) * AROP_NUMBER]);
-        gen_sym_name($1);
+        int t1 = get_type($1);
+        code("\n\t\t%s\t", ar_instructions[$3 + (t1 - 1) * AROP_NUMBER]);
+        if(get_kind($1) == UNION_VAR)
+          gen_sym_name(lookup_symbol(left_var_name, VAR|PAR));
+        else
+          gen_sym_name($1);
         code(",");
-        gen_sym_name($3);
+        if(get_kind($4) == UNION_VAR)
+          gen_sym_name(lookup_symbol(right_var_name, VAR|PAR));
+        else
+          gen_sym_name($4);
         code(",");
-        free_if_reg($3);
+        free_if_reg($4);
         free_if_reg($1);
         $$ = take_reg();
         gen_sym_name($$);
@@ -297,9 +310,17 @@ exp
       if(union_idx == NO_INDEX)
         err("variable '%s' undeclared", $1);
       else {
+        variable_name = $1;
         $$ = lookup_symbol_union_kind($3, UNION_VAR, get_union_name(union_idx));
         if($$ == NO_INDEX)
           err("Union '%s' doesn't have variable with name %s", get_union_name(union_idx) ,$3);
+        else {
+            if (get_kind(union_idx) == VAR) {
+              int union_var_idx = get_atr1($$);
+              if(union_var_idx != get_active_variable(union_idx))
+                err("Union member '%s' is not active.", $3);
+            }
+          }
       }
     }
   ;
@@ -348,8 +369,15 @@ argument
 
   | num_exp
     { 
-      if(get_atr2(fcall_idx) != get_type($1))
-        err("incompatible type for argument");
+      if(cast_active) {
+        if(get_type(fcall_idx) != cast_to_type)
+          err("incompatible type for argument. Value is casted to wrong type");
+        cast_active = 0;
+        cast_to_type = NO_TYPE;
+      }
+      else
+        if(get_atr2(fcall_idx) != get_type($1))
+          err("incompatible type for argument");
       free_if_reg($1);
       code("\n\t\t\tPUSH\t");
       gen_sym_name($1);
@@ -403,10 +431,13 @@ return_statement
             cast_active = 0;
             cast_to_type = NO_TYPE;
           }
-        else  
+        else
           if(get_type(fun_idx) != get_type($2))
             err("incompatible types in return");
-        gen_mov($2, FUN_REG);
+        if(get_kind($2) == UNION_VAR)
+          gen_mov(lookup_symbol(variable_name, VAR|PAR), FUN_REG);
+        else
+          gen_mov($2, FUN_REG);
         code("\n\t\tJMP \t@%s_exit", get_name(fun_idx));        
       }
   ;
@@ -420,10 +451,9 @@ union_definition
   : _UNION _ID 
     { 
       union_active = 1;
-      union_counter++;
       union_name = $2;
       if (lookup_symbol(union_name, UNION_K) == NO_INDEX) {
-        insert_symbol(union_name, UNION_K, NO_TYPE, union_counter, NO_ATR);
+        insert_symbol(union_name, UNION_K, NO_TYPE, ++union_counter, NO_ATR);
       }
       else {
         err("Union with name %s already exists", $2);
@@ -433,7 +463,7 @@ union_definition
     {
       if (union_var_num) {
         union_active = 0;
-        union_var_num = -1;
+        union_var_num = 0;
       }
       else {
         err("Union %s doesn't have attributes.", $2);
