@@ -12,3 +12,17 @@
 *.vsix
 
 .make.outg
+hipsim-src/hipsim.tab.c
+hipsim-src/hipsim.tab.h
+hipsim-src/lex.yy.c
+hipsim-src/hipsim.output
+.make.out
+.make.outb
+.make.outf
+hipsim
+lex.yy.c
+micko
+micko.output
+micko.tab.c
+micko.tab.h
+*.asm
