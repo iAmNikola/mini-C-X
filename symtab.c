@@ -39,7 +39,7 @@ int insert_symbol(char *name, unsigned kind, unsigned type,
   symbol_table[index].atr1 = atr1;
   symbol_table[index].atr2 = atr2;
   symbol_table[index].union_name = "";
-  symbol_table[index].active_variable = -1;
+  symbol_table[index].active_variable = 0;
   return index;
 }
 
@@ -51,7 +51,7 @@ int insert_symbol_union(char *name, unsigned kind, unsigned type, unsigned atr1,
   symbol_table[index].atr1 = atr1;
   symbol_table[index].atr2 = atr2;
   symbol_table[index].union_name = union_name;
-  symbol_table[index].active_variable = -1;
+  symbol_table[index].active_variable = 0;
   return index;
 }
 

@@ -10,7 +10,7 @@ typedef struct sym_entry {
    unsigned atr1;          // dodatni attribut simbola
    unsigned atr2;          // dodatni attribut simbola
    char *   union_name;    // ime unije kojoj pripada
-   int active_variable;    // redni broj aktivnog atributa unije i vrednost koju drzi;
+   unsigned active_variable;    // redni broj aktivnog atributa unije i vrednost koju drzi;
 } SYMBOL_ENTRY;
 
 // Vraca indeks prvog sledeceg praznog elementa.
