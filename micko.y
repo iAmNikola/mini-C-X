@@ -1,5 +1,6 @@
 %{
   #include <stdio.h>
+  #include <string.h>
   #include <stdlib.h>
   #include "defs.h"
   #include "symtab.h"
@@ -434,10 +435,18 @@ return_statement
         else
           if(get_type(fun_idx) != get_type($2))
             err("incompatible types in return");
-        if(get_kind($2) == UNION_VAR)
+        if(get_kind($2) == UNION_VAR) {
           gen_mov(lookup_symbol(variable_name, VAR|PAR), FUN_REG);
+        }
         else
-          gen_mov($2, FUN_REG);
+          if(get_type($2) == UNION) {
+            if(strcmp(get_union_name(fun_idx), get_union_name($2)) == 0)
+              gen_mov($2, FUN_REG);
+            else
+              err("incompatible union types in return.");
+          }
+          else
+            gen_mov($2, FUN_REG);
         code("\n\t\tJMP \t@%s_exit", get_name(fun_idx));        
       }
   ;
